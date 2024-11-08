@@ -8,28 +8,45 @@ import (
 )
 
 const (
-	CIErrorMessageKey = "CI_ERROR_MESSAGE"
-	CIErrorCodeKey    = "CI_ERROR_CODE"
-	CIMetadataFileEnv = "CI_ERROR_METADATA"
+	CIErrorMessageKey  = "CI_ERROR_MESSAGE"
+	CIErrorCodeKey     = "CI_ERROR_CODE"
+	CIMetadataFileEnv  = "CI_ERROR_METADATA"
+	DroneOutputFileEnv = "DRONE_OUTPUT"
 )
 
-// SetError sets the error message and error code and writes them to the CI_ERROR_METADATA file
-func SetError(message, code string) error {
-	if err := WriteEnvToMetadataFile(CIErrorMessageKey, message); err != nil {
-		return err
-	}
-	return WriteEnvToMetadataFile(CIErrorCodeKey, code)
+// SetSecret sets a new secret by adding it to the DRONE_OUTPUT file
+func SetSecret(name, value string) error {
+	return WriteEnvToFile(DroneOutputFileEnv, name, value)
 }
 
-// WriteEnvToMetadataFile writes a key-value pair to the CI_ERROR_METADATA file
-func WriteEnvToMetadataFile(key, value string) error {
-	metadataFilePath := os.Getenv(CIMetadataFileEnv)
-	if metadataFilePath == "" {
-		return fmt.Errorf("environment variable %s is not set", CIMetadataFileEnv)
+// UpdateSecret updates an existing secret with a new value in the DRONE_OUTPUT file
+func UpdateSecret(name, value string) error {
+	return WriteEnvToFile(DroneOutputFileEnv, name, value)
+}
+
+// DeleteSecret removes a secret by setting it to an empty value in the DRONE_OUTPUT file
+func DeleteSecret(name string) error {
+	return WriteEnvToFile(DroneOutputFileEnv, name, "")
+}
+
+// SetError sets the error message and error code, writing them to the CI_ERROR_METADATA file
+func SetError(message, code string) error {
+	if err := WriteEnvToFile(CIMetadataFileEnv, CIErrorMessageKey, message); err != nil {
+		return err
+	}
+	return WriteEnvToFile(CIMetadataFileEnv, CIErrorCodeKey, code)
+}
+
+// WriteEnvToFile writes a key-value pair to the specified file, determined by an environment variable
+func WriteEnvToFile(envVar, key, value string) error {
+	// Get the file path from the specified environment variable
+	filePath := os.Getenv(envVar)
+	if filePath == "" {
+		return fmt.Errorf("environment variable %s is not set", envVar)
 	}
 
-	// Check the extension of the metadata file (.env or .out)
-	ext := strings.ToLower(filepath.Ext(metadataFilePath))
+	// Check the extension of the file (.env or .out)
+	ext := strings.ToLower(filepath.Ext(filePath))
 
 	var content string
 	if ext == ".env" {
@@ -42,7 +59,7 @@ func WriteEnvToMetadataFile(key, value string) error {
 		return fmt.Errorf("unsupported file extension: %s", ext)
 	}
 
-	return writeToFile(metadataFilePath, content)
+	return writeToFile(filePath, content)
 }
 
 // Helper function to append content to the file
