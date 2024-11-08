@@ -8,52 +8,48 @@ import (
 )
 
 const (
-	PluginErrorMessageKey = "PLUGIN_ERROR_MESSAGE"
+	CIErrorMessageKey = "CI_ERROR_MESSAGE"
+	CIErrorCodeKey    = "CI_ERROR_CODE"
+	CIMetadataFileEnv = "CI_ERROR_METADATA"
 )
 
-// SetSecret sets a new secret by adding it to the output
-func SetSecret(name, value string) error {
-	return WriteEnvToFile(name, value)
+// SetError sets the error message and error code and writes them to the CI_ERROR_METADATA file
+func SetError(message, code string) error {
+	if err := WriteEnvToMetadataFile(CIErrorMessageKey, message); err != nil {
+		return err
+	}
+	return WriteEnvToMetadataFile(CIErrorCodeKey, code)
 }
 
-// UpdateSecret updates an existing secret with a new value
-func UpdateSecret(name, value string) error {
-	return WriteEnvToFile(name, value)
-}
+// WriteEnvToMetadataFile writes a key-value pair to the CI_ERROR_METADATA file
+func WriteEnvToMetadataFile(key, value string) error {
+	metadataFilePath := os.Getenv(CIMetadataFileEnv)
+	if metadataFilePath == "" {
+		return fmt.Errorf("environment variable %s is not set", CIMetadataFileEnv)
+	}
 
-// DeleteSecret removes a secret from the output
-func DeleteSecret(name string) error {
-	return WriteEnvToFile(name, "")
-}
+	// Check the extension of the metadata file (.env or .out)
+	ext := strings.ToLower(filepath.Ext(metadataFilePath))
 
-// SetError sets the error message and writes it to the DRONE_OUTPUT file
-func SetError(message string) error {
-	return WriteEnvToFile(PluginErrorMessageKey, message)
-}
-
-// WriteEnvToFile writes a key-value pair to the DRONE_OUTPUT file
-func WriteEnvToFile(key, value string) error {
-	outputFilePath := os.Getenv("DRONE_OUTPUT")
-	
-	// Check the extension of the output file (.env or .out)
-	ext := strings.ToLower(filepath.Ext(outputFilePath))
-
+	var content string
 	if ext == ".env" {
 		// Write in .env format (KEY=VALUE)
-		return writeToFile(outputFilePath, fmt.Sprintf("%s=%s\n", key, value))
+		content = fmt.Sprintf("%s=%s\n", key, value)
 	} else if ext == ".out" {
 		// Write in .out format (export KEY="VALUE")
-		return writeToFile(outputFilePath, fmt.Sprintf("%s %s\n", key, value))
+		content = fmt.Sprintf("%s \"%s\"\n", key, value)
 	} else {
 		return fmt.Errorf("unsupported file extension: %s", ext)
 	}
+
+	return writeToFile(metadataFilePath, content)
 }
 
 // Helper function to append content to the file
 func writeToFile(filename, content string) error {
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open output file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer f.Close()
 
