@@ -35,12 +35,12 @@ func SetSecret(name, value string) error {
 
 // UpdateSecret overwrites the value of an existing secret.
 func UpdateSecret(name, value string) error {
-	return updateOrDeleteFromFile(HarnessOutputSecretFile, name, value, false)
+	return UpdateOrRemoveKeyValue(HarnessOutputSecretFile, name, value, false)
 }
 
 // DeleteSecret removes a secret from the file entirely.
 func DeleteSecret(name string) error {
-	return updateOrDeleteFromFile(HarnessOutputSecretFile, name, "", true)
+	return UpdateOrRemoveKeyValue(HarnessOutputSecretFile, name, "", true)
 }
 
 // SetOutput sets a new secret by adding it to the DRONE_OUTPUT file
@@ -50,17 +50,16 @@ func SetOutput(name, value string) error {
 
 // UpdateOutput overwrites the value of an existing output.
 func UpdateOutput(name, value string) error {
-	return updateOrDeleteFromFile(DroneOutputFile, name, value, false)
+	return UpdateOrRemoveKeyValue(DroneOutputFile, name, value, false)
 }
 
 // DeleteOutput removes an output from the file entirely.
 func DeleteOutput(name string) error {
-	return updateOrDeleteFromFile(DroneOutputFile, name, "", true)
+	return UpdateOrRemoveKeyValue(DroneOutputFile, name, "", true)
 }
 
-// SetError sets the error message and error code, writing them to the CI_ERROR_METADATA file
-// SetError sets the error message, error code, and error category, writing them to the CI_ERROR_METADATA file
-func SetError(message, code, category string) error {
+// SetErrorMetadata sets the error message, error code, and error category, writing them to the CI_ERROR_METADATA file
+func SetErrorMetadata(message, code, category string) error {
 	// Write the error message
 	if err := WriteEnvToOutputFile(MetadataFile, ErrorMessageKey, message); err != nil {
 		return err
@@ -101,11 +100,11 @@ func WriteEnvToOutputFile(envVar, key, value string) error {
 		return fmt.Errorf("unsupported file extension: %s", ext)
 	}
 
-	return writeToFile(filePath, content)
+	return WriteToFile(filePath, content)
 }
 
 // Helper function to append content to the file
-func writeToFile(filename, content string) error {
+func WriteToFile(filename, content string) error {
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
@@ -121,8 +120,8 @@ func writeToFile(filename, content string) error {
 }
 
 
-// UpdateOrDeleteFromFile updates or deletes a key-value pair in the specified file.
-func updateOrDeleteFromFile(envVar, key, newValue string, delete bool) error {
+// UpdateOrRemoveKeyValue updates or deletes a key-value pair in the specified file.
+func UpdateOrRemoveKeyValue(envVar, key, newValue string, delete bool) error {
 	// Get the file path from the environment variable
 	filePath := os.Getenv(envVar)
 	if filePath == "" {
@@ -133,7 +132,7 @@ func updateOrDeleteFromFile(envVar, key, newValue string, delete bool) error {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	// Read the file contents into memory
-	lines, err := readLines(filePath)
+	lines, err := ReadLines(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -142,29 +141,29 @@ func updateOrDeleteFromFile(envVar, key, newValue string, delete bool) error {
 	var updatedLines []string
 	found := false
 	for _, line := range lines {
-		k, v := parseLine(line, ext)
+		k, v := ParseKeyValue(line, ext)
 		if k == key {
 			found = true
 			if delete {
 				continue // Skip the line to delete it
 			}
-			updatedLines = append(updatedLines, formatLine(k, newValue, ext))
+			updatedLines = append(updatedLines, FormatKeyValue(k, newValue, ext))
 		} else {
-			updatedLines = append(updatedLines, formatLine(k, v, ext))
+			updatedLines = append(updatedLines, FormatKeyValue(k, v, ext))
 		}
 	}
 
 	// Append new key-value if not found and not deleting
 	if !found && !delete {
-		updatedLines = append(updatedLines, formatLine(key, newValue, ext))
+		updatedLines = append(updatedLines, FormatKeyValue(key, newValue, ext))
 	}
 
 	// Write updated lines back to the file
-	return writeLines(filePath, updatedLines)
+	return WriteLines(filePath, updatedLines)
 }
 
 // Helper function to read lines from a file.
-func readLines(filename string) ([]string, error) {
+func ReadLines(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -180,7 +179,7 @@ func readLines(filename string) ([]string, error) {
 }
 
 // Helper function to write lines to a file.
-func writeLines(filename string, lines []string) error {
+func WriteLines(filename string, lines []string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
@@ -197,7 +196,7 @@ func writeLines(filename string, lines []string) error {
 }
 
 // Helper function to parse a line into key and value, considering file format.
-func parseLine(line, ext string) (string, string) {
+func ParseKeyValue(line, ext string) (string, string) {
 	if ext == ".env" {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
@@ -215,7 +214,7 @@ func parseLine(line, ext string) (string, string) {
 }
 
 // Helper function to format a key-value pair as a line, considering file format.
-func formatLine(key, value, ext string) string {
+func FormatKeyValue(key, value, ext string) string {
 	if ext == ".env" {
 		return fmt.Sprintf("%s=%s", key, value)
 	} else if ext == ".out" {
