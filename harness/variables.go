@@ -136,14 +136,16 @@ func ReadLines(filename string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-// Helper function to write lines to a file.
+// Helper function to write lines to a file, creating the file if it doesn't exist, and appending to it.
 func WriteLines(filename string, lines []string) error {
-	file, err := os.Create(filename)
+	// Open the file for appending (create it if it doesn't exist)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to open or create file: %w", err)
 	}
 	defer file.Close()
 
+	// Write each line to the file
 	for _, line := range lines {
 		_, err := file.WriteString(line + "\n")
 		if err != nil {
