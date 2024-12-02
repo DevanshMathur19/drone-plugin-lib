@@ -86,6 +86,15 @@ func UpdateOrRemoveKeyValue(envVar, key, newValue string, delete bool) error {
 		return fmt.Errorf("environment variable %s is not set", envVar)
 	}
 
+	// Ensure the file exists before reading
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// Create the file if it does not exist
+		_, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to create file: %w", err)
+		}
+	}
+
 	// Determine the file extension to handle formats
 	ext := strings.ToLower(filepath.Ext(filePath))
 
@@ -136,16 +145,14 @@ func ReadLines(filename string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-// Helper function to write lines to a file, creating the file if it doesn't exist, and appending to it.
+// Helper function to write lines to a file.
 func WriteLines(filename string, lines []string) error {
-	// Open the file for appending (create it if it doesn't exist)
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.Create(filename)
 	if err != nil {
-		return fmt.Errorf("failed to open or create file: %w", err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer file.Close()
 
-	// Write each line to the file
 	for _, line := range lines {
 		_, err := file.WriteString(line + "\n")
 		if err != nil {
