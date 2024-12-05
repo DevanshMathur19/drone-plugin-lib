@@ -129,7 +129,7 @@ func UpdateOrRemoveKeyValue(envVar, key, newValue string, delete bool) error {
 	return WriteLines(filePath, updatedLines)
 }
 
-// Helper function to read lines from a file.
+// ReadLines reads lines from a file and returns them as a slice of strings.
 func ReadLines(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -145,7 +145,7 @@ func ReadLines(filename string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-// Helper function to write lines to a file.
+// WriteLines writes a slice of strings to a file, each string being written to a new line.
 func WriteLines(filename string, lines []string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -162,7 +162,7 @@ func WriteLines(filename string, lines []string) error {
 	return nil
 }
 
-// Helper function to parse a line into key and value, considering file format.
+// ParseKeyValue parses a key-value pair from a string and returns the key and value.
 func ParseKeyValue(line, ext string) (string, string) {
 	if ext == ".env" {
 		parts := strings.SplitN(line, "=", 2)
@@ -172,15 +172,15 @@ func ParseKeyValue(line, ext string) (string, string) {
 		return strings.TrimSpace(parts[0]), ""
 	} else if ext == ".out" {
 		parts := strings.Fields(line)
-		if len(parts) == 2 {
-			return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+		if len(parts) > 1 {
+			return strings.TrimSpace(parts[0]), strings.TrimSpace(strings.Join(parts[1:], " "))
 		}
 		return strings.TrimSpace(parts[0]), ""
 	}
 	return "", ""
 }
 
-// Helper function to format a key-value pair as a line, considering file format.
+// FormatKeyValue formats a key-value pair into a string.
 func FormatKeyValue(key, value, ext string) string {
 	if ext == ".env" {
 		return fmt.Sprintf("%s=%s", key, value)
